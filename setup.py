@@ -15,7 +15,7 @@ setup(
     zip_safe=True,
     maintainer='Christian Rauch',
     maintainer_email='Christian.Rauch@unileoben.ac.at',
-    description='TODO: Package description',
+    description='publisher for ScanNet RGB-D sequences',
     license='MIT',
     extras_require={
         'test': [

@@ -3,7 +3,7 @@
 <package format="3">
   <name>scannet_publisher</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>publisher for ScanNet RGB-D sequences</description>
   <maintainer email="Christian.Rauch@unileoben.ac.at">Christian Rauch</maintainer>
   <license>MIT</license>
 
