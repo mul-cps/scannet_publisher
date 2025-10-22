@@ -12,6 +12,7 @@ from sensor_msgs.msg import CameraInfo, CompressedImage, Image
 import tf2_ros
 from tf_transformations import quaternion_from_matrix
 
+from sensor_msgs.msg import CompressedImage, Image
 
 from .SensorData import SensorData
 
@@ -20,6 +21,7 @@ class ScanNetPublisher(Node):
     def __init__(self):
         super().__init__('scannet_publisher')
 
+        # --- Parameter: path to .sens file ---
         file_path = self.declare_parameter(
             name='file',
             value=str(),
@@ -54,6 +56,7 @@ class ScanNetPublisher(Node):
         self.T_color = self.data.extrinsic_color
         self.T_depth = self.data.extrinsic_depth
 
+        # --- Start thread ---
         self.thread_reading = threading.Thread(target=self.read_and_publish, daemon=True)
         self.thread_reading.start()
 
