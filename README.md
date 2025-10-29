@@ -17,6 +17,7 @@ Topics:
 - `/camera/color/camera_info` (type: `sensor_msgs/msg/CameraInfo`): color intrinsics
 - `/camera/depth/camera_info` (type: `sensor_msgs/msg/CameraInfo`): depth intrinsics
 - `/tf` (type: `tf2_msgs/msg/TFMessage`): camera poses from extrinsics
+- `/camera_pose` (type: `geometry_msgs/msg/PoseStamped`): camera poses from extrinsics
 - `/clock` (type: `rosgraph_msgs/msg/Clock`): log file time stamp
 
 
