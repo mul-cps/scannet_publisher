@@ -7,7 +7,9 @@ from geometry_msgs.msg import TransformStamped
 import numpy as np
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
+from rclpy import clock
 from rclpy.node import Node
+from rosgraph_msgs.msg import Clock
 from scipy.spatial.transform import Rotation as R
 from sensor_msgs.msg import CameraInfo, CompressedImage, Image
 import tf2_ros
@@ -43,6 +45,12 @@ class ScanNetPublisher(Node):
         self.pub_color_info = self.create_publisher(CameraInfo, '/camera/color/camera_info', 1)
         self.pub_depth_info = self.create_publisher(CameraInfo, '/camera/depth/camera_info', 1)
 
+        self.pub_clock = self.create_publisher(Clock, '/clock', 1)
+
+        self.camera_frame_name = 'camera_color'
+
+        self.system_clock = clock.Clock(clock_type=clock.ClockType.SYSTEM_TIME)
+
         self.bridge = CvBridge()
         self.get_logger().info(f'Reading from: {file_path}')
         self.data = SensorData(file_path)
@@ -59,7 +67,9 @@ class ScanNetPublisher(Node):
         rate = self.create_rate(fps)
 
         for i, frame in enumerate(self.data):
-            offset = self.get_clock().now().to_msg()
+            tnow = self.system_clock.now().to_msg()
+
+            self.pub_clock.publish(Clock(clock=tnow))
 
             try:
                 color = frame.decompress_color(self.data.color_compression_type)
@@ -78,8 +88,8 @@ class ScanNetPublisher(Node):
                 K_color_scaled[1, 2] *= scale_y
 
                 color_msg = self.bridge.cv2_to_imgmsg(color_resized, encoding='bgr8')
-                color_msg.header.stamp = offset
-                color_msg.header.frame_id = 'camera'
+                color_msg.header.stamp = tnow
+                color_msg.header.frame_id = self.camera_frame_name
                 self.pub_color_raw.publish(color_msg)
 
                 color_width_scaled = int(self.data.color_width * scale_x)
@@ -96,8 +106,8 @@ class ScanNetPublisher(Node):
                 success, color_encoded = cv2.imencode('.jpg', color_resized)
                 if success:
                     color_comp_msg = CompressedImage()
-                    color_comp_msg.header.stamp = offset
-                    color_comp_msg.header.frame_id = 'camera'
+                    color_comp_msg.header.stamp = tnow
+                    color_comp_msg.header.frame_id = self.camera_frame_name
                     color_comp_msg.format = 'jpeg'
                     color_comp_msg.data = color_encoded.tobytes()
                     self.pub_color_compressed.publish(color_comp_msg)
@@ -113,8 +123,8 @@ class ScanNetPublisher(Node):
                 )
 
                 depth_msg = self.bridge.cv2_to_imgmsg(depth, encoding='16UC1')
-                depth_msg.header.stamp = offset
-                depth_msg.header.frame_id = 'camera'
+                depth_msg.header.stamp = tnow
+                depth_msg.header.frame_id = self.camera_frame_name
                 self.pub_depth_raw.publish(depth_msg)
 
                 self.publish_camera_info(
@@ -128,8 +138,8 @@ class ScanNetPublisher(Node):
                 success, depth_png = cv2.imencode('.png', depth)
                 if success:
                     depth_comp_msg = CompressedImage()
-                    depth_comp_msg.header.stamp = offset
-                    depth_comp_msg.header.frame_id = 'camera'
+                    depth_comp_msg.header.stamp = tnow
+                    depth_comp_msg.header.frame_id = self.camera_frame_name
                     depth_comp_msg.format = '16UC1; png compressed'
                     depth_comp_msg.data = depth_png.tobytes()
                     self.pub_depth_compressed.publish(depth_comp_msg)
@@ -139,7 +149,7 @@ class ScanNetPublisher(Node):
                 continue
 
             self.publish_extrinsics_tf(
-                frame.camera_to_world, 'world', 'camera_color', color_msg.header.stamp
+                frame.camera_to_world, 'world', self.camera_frame_name, tnow
             )
 
             if i % 50 == 0:
