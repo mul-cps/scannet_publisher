@@ -3,7 +3,7 @@ import threading
 
 import cv2
 from cv_bridge import CvBridge
-from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped
 import numpy as np
 from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
@@ -44,6 +44,8 @@ class ScanNetPublisher(Node):
         )
         self.pub_color_info = self.create_publisher(CameraInfo, '/camera/color/camera_info', 1)
         self.pub_depth_info = self.create_publisher(CameraInfo, '/camera/depth/camera_info', 1)
+
+        self.pub_camera_pose = self.create_publisher(PoseStamped, '/camera_pose', 1)
 
         self.pub_clock = self.create_publisher(Clock, '/clock', 1)
 
@@ -149,7 +151,7 @@ class ScanNetPublisher(Node):
                 continue
 
             self.publish_extrinsics_tf(
-                frame.camera_to_world, 'world', self.camera_frame_name, tnow
+                frame.camera_to_world, 'map', self.camera_frame_name, tnow
             )
 
             if i % 50 == 0:
@@ -201,12 +203,22 @@ class ScanNetPublisher(Node):
         t.transform.translation.y = float(T[1, 3])
         t.transform.translation.z = float(T[2, 3])
 
-        t.transform.rotation.x = float(q[0])
-        t.transform.rotation.y = float(q[1])
-        t.transform.rotation.z = float(q[2])
-        t.transform.rotation.w = float(q[3])
+        t.transform.rotation.x = q[0]
+        t.transform.rotation.y = q[1]
+        t.transform.rotation.z = q[2]
+        t.transform.rotation.w = q[3]
 
         self.tf_broadcaster.sendTransform(t)
+
+        pose_msg = PoseStamped()
+        pose_msg.header.stamp = stamp
+        pose_msg.header.frame_id = parent_frame
+        pose_msg.pose.position.x = t.transform.translation.x
+        pose_msg.pose.position.y = t.transform.translation.y
+        pose_msg.pose.position.z = t.transform.translation.z
+        pose_msg.pose.orientation = t.transform.rotation
+
+        self.pub_camera_pose.publish(pose_msg)
 
     def __del__(self):
         if hasattr(self, 'data'):
