@@ -201,10 +201,10 @@ class ScanNetPublisher(Node):
         t.transform.translation.y = float(T[1, 3])
         t.transform.translation.z = float(T[2, 3])
 
-        t.transform.rotation.x = float(q[0])
-        t.transform.rotation.y = float(q[1])
-        t.transform.rotation.z = float(q[2])
-        t.transform.rotation.w = float(q[3])
+        t.transform.rotation.x = q[0]
+        t.transform.rotation.y = q[1]
+        t.transform.rotation.z = q[2]
+        t.transform.rotation.w = q[3]
 
         self.tf_broadcaster.sendTransform(t)
 
