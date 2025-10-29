@@ -149,7 +149,7 @@ class ScanNetPublisher(Node):
                 continue
 
             self.publish_extrinsics_tf(
-                frame.camera_to_world, 'world', self.camera_frame_name, tnow
+                frame.camera_to_world, 'map', self.camera_frame_name, tnow
             )
 
             if i % 50 == 0:
