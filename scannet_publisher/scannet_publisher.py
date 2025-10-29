@@ -47,6 +47,8 @@ class ScanNetPublisher(Node):
 
         self.pub_clock = self.create_publisher(Clock, '/clock', 1)
 
+        self.camera_frame_name = 'camera_color'
+
         self.system_clock = clock.Clock(clock_type=clock.ClockType.SYSTEM_TIME)
 
         self.bridge = CvBridge()
@@ -87,7 +89,7 @@ class ScanNetPublisher(Node):
 
                 color_msg = self.bridge.cv2_to_imgmsg(color_resized, encoding='bgr8')
                 color_msg.header.stamp = tnow
-                color_msg.header.frame_id = 'camera'
+                color_msg.header.frame_id = self.camera_frame_name
                 self.pub_color_raw.publish(color_msg)
 
                 color_width_scaled = int(self.data.color_width * scale_x)
@@ -105,7 +107,7 @@ class ScanNetPublisher(Node):
                 if success:
                     color_comp_msg = CompressedImage()
                     color_comp_msg.header.stamp = tnow
-                    color_comp_msg.header.frame_id = 'camera'
+                    color_comp_msg.header.frame_id = self.camera_frame_name
                     color_comp_msg.format = 'jpeg'
                     color_comp_msg.data = color_encoded.tobytes()
                     self.pub_color_compressed.publish(color_comp_msg)
@@ -122,7 +124,7 @@ class ScanNetPublisher(Node):
 
                 depth_msg = self.bridge.cv2_to_imgmsg(depth, encoding='16UC1')
                 depth_msg.header.stamp = tnow
-                depth_msg.header.frame_id = 'camera'
+                depth_msg.header.frame_id = self.camera_frame_name
                 self.pub_depth_raw.publish(depth_msg)
 
                 self.publish_camera_info(
@@ -137,7 +139,7 @@ class ScanNetPublisher(Node):
                 if success:
                     depth_comp_msg = CompressedImage()
                     depth_comp_msg.header.stamp = tnow
-                    depth_comp_msg.header.frame_id = 'camera'
+                    depth_comp_msg.header.frame_id = self.camera_frame_name
                     depth_comp_msg.format = '16UC1; png compressed'
                     depth_comp_msg.data = depth_png.tobytes()
                     self.pub_depth_compressed.publish(depth_comp_msg)
@@ -147,7 +149,7 @@ class ScanNetPublisher(Node):
                 continue
 
             self.publish_extrinsics_tf(
-                frame.camera_to_world, 'world', 'camera_color', tnow
+                frame.camera_to_world, 'world', self.camera_frame_name, tnow
             )
 
             if i % 50 == 0:
