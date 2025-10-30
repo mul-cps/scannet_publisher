@@ -27,6 +27,15 @@ class ScanNetPublisher(Node):
             descriptor=ParameterDescriptor(read_only=True),
         ).value
 
+        self.publish_ground_truth = self.declare_parameter(
+            name='ground_truth',
+            value=True,
+            descriptor=ParameterDescriptor(
+                read_only=True,
+                description='publish the ground truth camera poses',
+            ),
+        ).value
+
         if not file_path:
             raise RuntimeError('File path not provided!')
         if not os.path.exists(file_path):
@@ -45,8 +54,6 @@ class ScanNetPublisher(Node):
         self.pub_color_info = self.create_publisher(CameraInfo, '/camera/color/camera_info', 1)
         self.pub_depth_info = self.create_publisher(CameraInfo, '/camera/depth/camera_info', 1)
 
-        self.pub_camera_pose = self.create_publisher(PoseStamped, '/camera_pose', 1)
-
         self.pub_clock = self.create_publisher(Clock, '/clock', 1)
 
         self.camera_frame_name = 'camera_color'
@@ -56,7 +63,9 @@ class ScanNetPublisher(Node):
         self.bridge = CvBridge()
         self.get_logger().info(f'Reading from: {file_path}')
         self.data = SensorData(file_path)
-        self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
+        if self.publish_ground_truth:
+            self.pub_camera_pose = self.create_publisher(PoseStamped, '/camera_pose', 1)
+            self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
 
         self.K_color = self.data.intrinsic_color[:3, :3]
         self.K_depth = self.data.intrinsic_depth[:3, :3]
@@ -150,9 +159,10 @@ class ScanNetPublisher(Node):
                 self.get_logger().warn(f'Failed to publish depth camera {i}: {e}')
                 continue
 
-            self.publish_extrinsics_tf(
-                frame.camera_to_world, 'map', self.camera_frame_name, tnow
-            )
+            if self.publish_ground_truth:
+                self.publish_extrinsics_tf(
+                    frame.camera_to_world, 'map', self.camera_frame_name, tnow
+                )
 
             if i % 50 == 0:
                 self.get_logger().info(f'Published frame {i}/{self.data.num_frames}')
