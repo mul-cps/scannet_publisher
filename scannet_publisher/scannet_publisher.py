@@ -170,6 +170,7 @@ class ScanNetPublisher(Node):
             rate.sleep()
 
         self.get_logger().info('All frames have been published')
+        rclpy.try_shutdown()
 
     def publish_camera_info(self, header, K, width, height, topic_pub):
         cam_info = CameraInfo()
