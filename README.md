@@ -26,4 +26,12 @@ Topics:
 
 ## Access ScanNet Sequences
 
+An overview of all ScanNet scenes is available at: https://kaldir.vc.in.tum.de/scannet_browse/scans/scannet/grouped. Note the sequence number in the format `sceneAAAA_BB` and download the `.sens` file:
+```sh
+SEQUENCE="scene0000_00"
+wget https://kaldir.vc.in.tum.de/scannet/v1/scans/$SEQUENCE/$SEQUENCE.sens
+```
+
+You have to agree to the [ScanNet Terms of Use](https://kaldir.vc.in.tum.de/scannet/ScanNet_TOS.pdf) to access and use the data.
+
 See https://github.com/ScanNet/ScanNet for details on how to access and interpret the data.
