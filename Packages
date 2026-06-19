@@ -1,0 +1,16 @@
+Package: ros-jazzy-scannet-publisher
+Architecture: amd64
+Version: 0-2026.06.19.12.36
+Priority: optional
+Section: misc
+Maintainer: Christian Rauch <Christian.Rauch@unileoben.ac.at>
+Installed-Size: 68
+Depends: python3-numpy, python3-opencv, python3-scipy, ros-jazzy-geometry-msgs, ros-jazzy-rcl-interfaces, ros-jazzy-rclpy, ros-jazzy-rosgraph-msgs, ros-jazzy-sensor-msgs, ros-jazzy-tf2-ros
+Filename: ./ros-jazzy-scannet-publisher_0-2026.06.19.12.36_amd64.deb
+Size: 14850
+MD5sum: d4ce7a0ab11edfcd3bd72821b29f9a98
+SHA1: 282592c7851a2b19022b632abdbd780f900cad87
+SHA256: 2e6d6abbc5abb2e9ee2fa62cb8c46adaaa56363bc2a2c256bf53dcc44bc9943e
+SHA512: 8befe936f743eaa9d71d8007d898298ea9b548cc75cde02ae5505ed0109b25170ce775cf2d78e6af095cb50d3e4261a6811931bd4cf8c9d05063d7957fab0fd2
+Description: publisher for ScanNet RGB-D sequences
+
