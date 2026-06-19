@@ -1,5 +1,27 @@
 # ROS 2 publisher for ScanNet sequences
 
+## Installation
+
+Build the `scannet_publisher` package as part of your workspace.
+
+Alternatively, use the pre-build Debian packages that are served in the branches of this repo:
+
+https://github.com/mul-cps/scannet_publisher/branches/all
+
+See the instructions in these branches on how to set up the Debian and rosdep repository. Typically, this involves something like:
+```sh
+echo "deb [trusted=yes] https://raw.githubusercontent.com/mul-cps/scannet_publisher/resolute-lyrical-amd64/ ./" | sudo tee /etc/apt/sources.list.d/mul-cps_scannet_publisher-resolute-lyrical-amd64.list
+sudo apt update
+echo "yaml https://github.com/mul-cps/scannet_publisher/raw/resolute-lyrical-amd64/local.yaml lyrical" | sudo tee /etc/ros/rosdep/sources.list.d/1-mul-cps_scannet_publisher-resolute-lyrical-amd64.list
+rosdep update
+```
+
+After this, you can install the packages:
+```sh
+sudo apt install ros-lyrical-scannet-publisher
+```
+
+
 ## Usage
 
 ```bash
