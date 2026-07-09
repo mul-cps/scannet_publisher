@@ -1,3 +1,4 @@
+from itertools import islice
 import os
 import threading
 
@@ -5,7 +6,7 @@ import cv2
 from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped, TransformStamped
 import numpy as np
-from rcl_interfaces.msg import ParameterDescriptor
+from rcl_interfaces.msg import IntegerRange, ParameterDescriptor
 import rclpy
 from rclpy import clock
 from rclpy.node import Node
@@ -33,6 +34,26 @@ class ScanNetPublisher(Node):
             descriptor=ParameterDescriptor(
                 read_only=True,
                 description='publish the ground truth camera poses',
+            ),
+        ).value
+
+        self.seq_start = self.declare_parameter(
+            name='seq_start',
+            value=0,
+            descriptor=ParameterDescriptor(
+                read_only=True,
+                integer_range=[IntegerRange(from_value=0, to_value=2**63 - 1)],
+                description='image index where to start sequence',
+            ),
+        ).value
+
+        self.seq_duration = self.declare_parameter(
+            name='seq_duration',
+            value=0,
+            descriptor=ParameterDescriptor(
+                read_only=True,
+                integer_range=[IntegerRange(from_value=0, to_value=2**63 - 1)],
+                description='number of images to publish',
             ),
         ).value
 
@@ -65,6 +86,16 @@ class ScanNetPublisher(Node):
         self.data = SensorData(file_path)
         # we only support a depth scaling factor of 1000
         assert self.data.depth_shift == 1000
+
+        if (self.seq_start < 0) or (self.seq_start > self.data.num_frames):
+            raise ValueError('seq_start must be [0, num_frames]')
+
+        if self.seq_duration == 0:
+            self.seq_duration = self.data.num_frames - self.seq_start
+
+        if (self.seq_start + self.seq_duration) > self.data.num_frames:
+            raise ValueError('seq_start + seq_duration must be <= num_frames')
+
         if self.publish_ground_truth:
             self.pub_camera_pose = self.create_publisher(PoseStamped, '/camera_pose', 1)
             self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
@@ -91,7 +122,9 @@ class ScanNetPublisher(Node):
         color_width_scaled = self.data.depth_width
         color_height_scaled = self.data.depth_height
 
-        for i, frame in enumerate(self.data):
+        seq_end = self.seq_start+self.seq_duration
+
+        for i, frame in islice(enumerate(self.data), self.seq_start, seq_end):
             tnow = self.system_clock.now().to_msg()
 
             self.pub_clock.publish(Clock(clock=tnow))
@@ -158,7 +191,7 @@ class ScanNetPublisher(Node):
                 )
 
             if i % 50 == 0:
-                self.get_logger().info(f'Published frame {i}/{self.data.num_frames}')
+                self.get_logger().info(f'Published frame {i}/{seq_end}')
 
             rate.sleep()
 
