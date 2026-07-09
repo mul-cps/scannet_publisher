@@ -77,6 +77,18 @@ class ScanNetPublisher(Node):
         fps = 30
         rate = self.create_rate(fps)
 
+        scale_x = self.data.depth_width / self.data.color_width
+        scale_y = self.data.depth_height / self.data.color_height
+
+        K_color_scaled = self.K_color.copy()
+        K_color_scaled[0, 0] *= scale_x
+        K_color_scaled[1, 1] *= scale_y
+        K_color_scaled[0, 2] *= scale_x
+        K_color_scaled[1, 2] *= scale_y
+
+        color_width_scaled = self.data.depth_width
+        color_height_scaled = self.data.depth_height
+
         for i, frame in enumerate(self.data):
             tnow = self.system_clock.now().to_msg()
 
@@ -88,22 +100,11 @@ class ScanNetPublisher(Node):
                 (self.data.depth_width, self.data.depth_height),
                 interpolation=cv2.INTER_LINEAR,
             )
-            scale_x = self.data.depth_width / self.data.color_width
-            scale_y = self.data.depth_height / self.data.color_height
-
-            K_color_scaled = self.K_color.copy()
-            K_color_scaled[0, 0] *= scale_x
-            K_color_scaled[1, 1] *= scale_y
-            K_color_scaled[0, 2] *= scale_x
-            K_color_scaled[1, 2] *= scale_y
 
             color_msg = self.bridge.cv2_to_imgmsg(color_resized, encoding='bgr8')
             color_msg.header.stamp = tnow
             color_msg.header.frame_id = self.camera_frame_name
             self.pub_color_raw.publish(color_msg)
-
-            color_width_scaled = int(self.data.color_width * scale_x)
-            color_height_scaled = int(self.data.color_height * scale_y)
 
             self.publish_camera_info(
                 color_msg.header,
