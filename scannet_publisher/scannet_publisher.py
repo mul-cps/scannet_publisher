@@ -1,3 +1,4 @@
+from itertools import islice
 import os
 import threading
 
@@ -5,7 +6,7 @@ import cv2
 from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped, TransformStamped
 import numpy as np
-from rcl_interfaces.msg import ParameterDescriptor
+from rcl_interfaces.msg import IntegerRange, ParameterDescriptor
 import rclpy
 from rclpy import clock
 from rclpy.node import Node
@@ -36,6 +37,26 @@ class ScanNetPublisher(Node):
             ),
         ).value
 
+        self.seq_start = self.declare_parameter(
+            name='seq_start',
+            value=0,
+            descriptor=ParameterDescriptor(
+                read_only=True,
+                integer_range=[IntegerRange(from_value=0, to_value=2**63 - 1)],
+                description='image index where to start sequence',
+            ),
+        ).value
+
+        self.seq_duration = self.declare_parameter(
+            name='seq_duration',
+            value=0,
+            descriptor=ParameterDescriptor(
+                read_only=True,
+                integer_range=[IntegerRange(from_value=0, to_value=2**63 - 1)],
+                description='number of images to publish',
+            ),
+        ).value
+
         if not file_path:
             raise RuntimeError('File path not provided!')
         if not os.path.exists(file_path):
@@ -63,6 +84,18 @@ class ScanNetPublisher(Node):
         self.bridge = CvBridge()
         self.get_logger().info(f'Reading from: {file_path}')
         self.data = SensorData(file_path)
+        # we only support a depth scaling factor of 1000
+        assert self.data.depth_shift == 1000
+
+        if (self.seq_start < 0) or (self.seq_start > self.data.num_frames):
+            raise ValueError('seq_start must be [0, num_frames]')
+
+        if self.seq_duration == 0:
+            self.seq_duration = self.data.num_frames - self.seq_start
+
+        if (self.seq_start + self.seq_duration) > self.data.num_frames:
+            raise ValueError('seq_start + seq_duration must be <= num_frames')
+
         if self.publish_ground_truth:
             self.pub_camera_pose = self.create_publisher(PoseStamped, '/camera_pose', 1)
             self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
@@ -77,87 +110,80 @@ class ScanNetPublisher(Node):
         fps = 30
         rate = self.create_rate(fps)
 
-        for i, frame in enumerate(self.data):
+        scale_x = self.data.depth_width / self.data.color_width
+        scale_y = self.data.depth_height / self.data.color_height
+
+        K_color_scaled = self.K_color.copy()
+        K_color_scaled[0, 0] *= scale_x
+        K_color_scaled[1, 1] *= scale_y
+        K_color_scaled[0, 2] *= scale_x
+        K_color_scaled[1, 2] *= scale_y
+
+        color_width_scaled = self.data.depth_width
+        color_height_scaled = self.data.depth_height
+
+        seq_end = self.seq_start+self.seq_duration
+
+        for i, frame in islice(enumerate(self.data), self.seq_start, seq_end):
             tnow = self.system_clock.now().to_msg()
 
             self.pub_clock.publish(Clock(clock=tnow))
 
-            try:
-                color = frame.decompress_color(self.data.color_compression_type)
-                color_resized = cv2.resize(
-                    color,
-                    (self.data.depth_width, self.data.depth_height),
-                    interpolation=cv2.INTER_LINEAR,
-                )
-                scale_x = self.data.depth_width / self.data.color_width
-                scale_y = self.data.depth_height / self.data.color_height
+            color = frame.decompress_color(self.data.color_compression_type)
+            color_resized = cv2.resize(
+                color,
+                (self.data.depth_width, self.data.depth_height),
+                interpolation=cv2.INTER_LINEAR,
+            )
 
-                K_color_scaled = self.K_color.copy()
-                K_color_scaled[0, 0] *= scale_x
-                K_color_scaled[1, 1] *= scale_y
-                K_color_scaled[0, 2] *= scale_x
-                K_color_scaled[1, 2] *= scale_y
+            color_msg = self.bridge.cv2_to_imgmsg(color_resized, encoding='bgr8')
+            color_msg.header.stamp = tnow
+            color_msg.header.frame_id = self.camera_frame_name
+            self.pub_color_raw.publish(color_msg)
 
-                color_msg = self.bridge.cv2_to_imgmsg(color_resized, encoding='bgr8')
-                color_msg.header.stamp = tnow
-                color_msg.header.frame_id = self.camera_frame_name
-                self.pub_color_raw.publish(color_msg)
+            self.publish_camera_info(
+                color_msg.header,
+                K_color_scaled,
+                color_width_scaled,
+                color_height_scaled,
+                self.pub_color_info,
+            )
 
-                color_width_scaled = int(self.data.color_width * scale_x)
-                color_height_scaled = int(self.data.color_height * scale_y)
+            success, color_encoded = cv2.imencode('.jpg', color_resized)
+            if success:
+                color_comp_msg = CompressedImage()
+                color_comp_msg.header.stamp = tnow
+                color_comp_msg.header.frame_id = self.camera_frame_name
+                color_comp_msg.format = 'jpeg'
+                color_comp_msg.data = color_encoded.tobytes()
+                self.pub_color_compressed.publish(color_comp_msg)
 
-                self.publish_camera_info(
-                    color_msg.header,
-                    K_color_scaled,
-                    color_width_scaled,
-                    color_height_scaled,
-                    self.pub_color_info,
-                )
+            depth_bytes = frame.decompress_depth(self.data.depth_compression_type)
+            depth = np.frombuffer(depth_bytes, dtype=np.uint16).reshape(
+                self.data.depth_height, self.data.depth_width
+            )
 
-                success, color_encoded = cv2.imencode('.jpg', color_resized)
-                if success:
-                    color_comp_msg = CompressedImage()
-                    color_comp_msg.header.stamp = tnow
-                    color_comp_msg.header.frame_id = self.camera_frame_name
-                    color_comp_msg.format = 'jpeg'
-                    color_comp_msg.data = color_encoded.tobytes()
-                    self.pub_color_compressed.publish(color_comp_msg)
+            depth_msg = self.bridge.cv2_to_imgmsg(depth, encoding='16UC1')
+            depth_msg.header.stamp = tnow
+            depth_msg.header.frame_id = self.camera_frame_name
+            self.pub_depth_raw.publish(depth_msg)
 
-            except Exception as e:
-                self.get_logger().warn(f'Failed to publish color frame {i}: {e}')
-                continue
+            self.publish_camera_info(
+                depth_msg.header,
+                self.K_depth,
+                self.data.depth_width,
+                self.data.depth_height,
+                self.pub_depth_info,
+            )
 
-            try:
-                depth_bytes = frame.decompress_depth(self.data.depth_compression_type)
-                depth = np.frombuffer(depth_bytes, dtype=np.uint16).reshape(
-                    self.data.depth_height, self.data.depth_width
-                )
-
-                depth_msg = self.bridge.cv2_to_imgmsg(depth, encoding='16UC1')
-                depth_msg.header.stamp = tnow
-                depth_msg.header.frame_id = self.camera_frame_name
-                self.pub_depth_raw.publish(depth_msg)
-
-                self.publish_camera_info(
-                    depth_msg.header,
-                    self.K_depth,
-                    self.data.depth_width,
-                    self.data.depth_height,
-                    self.pub_depth_info,
-                )
-
-                success, depth_png = cv2.imencode('.png', depth)
-                if success:
-                    depth_comp_msg = CompressedImage()
-                    depth_comp_msg.header.stamp = tnow
-                    depth_comp_msg.header.frame_id = self.camera_frame_name
-                    depth_comp_msg.format = '16UC1; png compressed'
-                    depth_comp_msg.data = depth_png.tobytes()
-                    self.pub_depth_compressed.publish(depth_comp_msg)
-
-            except Exception as e:
-                self.get_logger().warn(f'Failed to publish depth camera {i}: {e}')
-                continue
+            success, depth_png = cv2.imencode('.png', depth)
+            if success:
+                depth_comp_msg = CompressedImage()
+                depth_comp_msg.header.stamp = tnow
+                depth_comp_msg.header.frame_id = self.camera_frame_name
+                depth_comp_msg.format = '16UC1; png compressed'
+                depth_comp_msg.data = depth_png.tobytes()
+                self.pub_depth_compressed.publish(depth_comp_msg)
 
             if self.publish_ground_truth:
                 self.publish_extrinsics_tf(
@@ -165,7 +191,7 @@ class ScanNetPublisher(Node):
                 )
 
             if i % 50 == 0:
-                self.get_logger().info(f'Published frame {i}/{self.data.num_frames}')
+                self.get_logger().info(f'Published frame {i}/{seq_end}')
 
             rate.sleep()
 
@@ -197,13 +223,9 @@ class ScanNetPublisher(Node):
             self.get_logger().warn('Invalid transform — skipping TF publish')
             return
 
-        try:
-            U, _, Vt = np.linalg.svd(T[:3, :3])
-            Rm = np.dot(U, Vt)
-            q = R.from_matrix(Rm).as_quat()
-        except Exception as e:
-            self.get_logger().warn(f'Failed to compute quaternion: {e}')
-            return
+        U, _, Vt = np.linalg.svd(T[:3, :3])
+        Rm = np.dot(U, Vt)
+        q = R.from_matrix(Rm).as_quat()
 
         t = TransformStamped()
         t.header.stamp = stamp
