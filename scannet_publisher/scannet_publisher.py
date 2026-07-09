@@ -63,6 +63,8 @@ class ScanNetPublisher(Node):
         self.bridge = CvBridge()
         self.get_logger().info(f'Reading from: {file_path}')
         self.data = SensorData(file_path)
+        # we only support a depth scaling factor of 1000
+        assert self.data.depth_shift == 1000
         if self.publish_ground_truth:
             self.pub_camera_pose = self.create_publisher(PoseStamped, '/camera_pose', 1)
             self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
