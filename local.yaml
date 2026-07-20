@@ -1,0 +1,3 @@
+scannet_publisher:
+  ubuntu:
+  - ros-lyrical-scannet-publisher

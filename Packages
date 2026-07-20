@@ -1,0 +1,16 @@
+Package: ros-lyrical-scannet-publisher
+Architecture: amd64
+Version: 0-2026.07.20.14.34
+Priority: optional
+Section: misc
+Maintainer: Christian Rauch <Christian.Rauch@unileoben.ac.at>
+Installed-Size: 72
+Depends: python3-numpy, python3-opencv, python3-scipy, ros-lyrical-geometry-msgs, ros-lyrical-rcl-interfaces, ros-lyrical-rclpy, ros-lyrical-rosgraph-msgs, ros-lyrical-sensor-msgs, ros-lyrical-tf2-ros
+Filename: ./ros-lyrical-scannet-publisher_0-2026.07.20.14.34_amd64.deb
+Size: 15710
+MD5sum: 1ff810fb72824fd4604f037ac364bf52
+SHA1: 93bf1b2ac1e564c5c8613267a11f0adc91a0ffed
+SHA256: 15add1d85e7619797854beb4b4c7c871694fdb49ad5ceb9da660ebb3e21eeda7
+SHA512: 95d81d23e695d0979cd6d726ce5824d9e3516b9ca14c45b5833fec8cc35f1ca64c3682ba2e380b0c0bc42a48d2d22e739cbd55870a9da55fd447391e6c200237
+Description: publisher for ScanNet RGB-D sequences
+
