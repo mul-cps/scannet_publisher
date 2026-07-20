@@ -204,13 +204,9 @@ class ScanNetPublisher(Node):
         cam_info.width = width
         cam_info.height = height
         cam_info.distortion_model = 'plumb_bob'
-        cam_info.d = [0.0, 0.0, 0.0, 0.0, 0.0]
+        cam_info.d = np.zeros(5).flatten().tolist()
         cam_info.k = K.flatten().tolist()
-        cam_info.r = [
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0,
-        ]
+        cam_info.r = np.eye(3).flatten().tolist()
         cam_info.p = np.hstack((K, np.zeros((K.shape[0], 1)))).flatten().tolist()
         topic_pub.publish(cam_info)
 
