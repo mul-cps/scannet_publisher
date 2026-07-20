@@ -211,11 +211,7 @@ class ScanNetPublisher(Node):
             0.0, 1.0, 0.0,
             0.0, 0.0, 1.0,
         ]
-        cam_info.p = [
-            K[0, 0], K[0, 1], K[0, 2], 0.0,
-            K[1, 0], K[1, 1], K[1, 2], 0.0,
-            K[2, 0], K[2, 1], K[2, 2], 0.0,
-        ]
+        cam_info.p = np.hstack((K, np.zeros((K.shape[0], 1)))).flatten().tolist()
         topic_pub.publish(cam_info)
 
     def publish_extrinsics_tf(self, T, parent_frame, child_frame, stamp):
