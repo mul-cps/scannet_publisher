@@ -31,6 +31,9 @@ ros2 run scannet_publisher scannet_publisher --ros-args -p file:="$SEQUENCE.sens
 Parameters:
 - `file` (type: `string`): path to the `.sens` file
 - `ground_truth` (type: `bool`): publish the ground truth camera poses (default: `True`)
+- `seq_start` (type: `int`): image index where to start sequence
+- `seq_duration` (type: `int`): number of images to publish
+
 
 Topics:
 - `/camera/color/image_raw/compressed` (type: `sensor_msgs/msg/CompressedImage`): compressed colour image
